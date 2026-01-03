@@ -44,20 +44,10 @@ export const PdfViewer: React.FC<Props> = ({ file, onClose }) => {
     renderPage(pageNum);
   }, [pdfDoc, pageNum, scale]);
 
-  // Keyboard Navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') changePage(-1);
-      if (e.key === 'ArrowRight') changePage(1);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pageNum, pdfDoc]);
-
   const renderPage = async (num: number) => {
     if (!canvasRef.current || !pdfDoc) return;
 
+    // Cancel previous render if any
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
     }
@@ -97,19 +87,18 @@ export const PdfViewer: React.FC<Props> = ({ file, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black bg-opacity-95 flex flex-col animate-in fade-in duration-200" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] bg-black bg-opacity-90 flex flex-col animate-in fade-in duration-200">
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-4 bg-gray-900 text-white border-b border-gray-800" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between p-4 bg-gray-900 text-white border-b border-gray-800">
         <div className="flex items-center space-x-4">
            <div className="bg-red-500 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider">PDF</div>
-           <h3 className="font-medium text-sm truncate max-w-[150px] md:max-w-md">{file.name}</h3>
+           <h3 className="font-medium text-sm truncate max-w-md">{file.name}</h3>
            <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
              {pdfDoc ? `${pageNum} / ${pdfDoc.numPages}` : '...'}
            </span>
         </div>
         
         <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500 mr-2 hidden sm:inline">Esc per tancar</span>
           <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="p-2 hover:bg-gray-700 rounded transition-colors" title="Reduir Zoom">
             <ZoomOut size={20} />
           </button>
@@ -124,7 +113,7 @@ export const PdfViewer: React.FC<Props> = ({ file, onClose }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 relative flex items-center justify-center overflow-auto bg-gray-900/50 p-8 custom-scrollbar">
+      <div className="flex-1 relative flex items-center justify-center overflow-auto bg-gray-800 p-8 custom-scrollbar">
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
             <Loader2 className="w-10 h-10 animate-spin mb-3 text-indigo-500" />
@@ -132,7 +121,7 @@ export const PdfViewer: React.FC<Props> = ({ file, onClose }) => {
           </div>
         )}
         
-        <div onClick={e => e.stopPropagation()} className="shadow-2xl">
+        <div className="shadow-2xl">
           <canvas ref={canvasRef} className="rounded-sm bg-white block" />
         </div>
 
@@ -140,16 +129,16 @@ export const PdfViewer: React.FC<Props> = ({ file, onClose }) => {
         {!loading && pdfDoc && (
           <>
             <button 
-              onClick={(e) => { e.stopPropagation(); changePage(-1); }}
+              onClick={() => changePage(-1)}
               disabled={pageNum <= 1}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-gray-800 hover:bg-indigo-600 text-white rounded-full disabled:opacity-30 transition-all shadow-lg"
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-indigo-600 text-white rounded-full disabled:opacity-30 transition-all shadow-lg backdrop-blur-sm"
             >
               <ChevronLeft size={24} />
             </button>
             <button 
-              onClick={(e) => { e.stopPropagation(); changePage(1); }}
+              onClick={() => changePage(1)}
               disabled={pageNum >= pdfDoc.numPages}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gray-800 hover:bg-indigo-600 text-white rounded-full disabled:opacity-30 transition-all shadow-lg"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-gray-900/80 hover:bg-indigo-600 text-white rounded-full disabled:opacity-30 transition-all shadow-lg backdrop-blur-sm"
             >
               <ChevronRight size={24} />
             </button>

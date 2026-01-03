@@ -5,12 +5,43 @@ import { CourseUnit } from "../types";
 // Helper shared configuration
 const setupDoc = () => {
   const doc = new jsPDF();
+  // Setting font to Helvetica explicitly ensures better standard character support
+  doc.setFont("helvetica", "normal");
   return {
     doc,
     margin: 20,
     pageWidth: doc.internal.pageSize.getWidth(),
     pageHeight: doc.internal.pageSize.getHeight(),
   };
+};
+
+// Robust Markdown Cleaner for PDF
+const cleanMarkdownForPdf = (text: string): string => {
+  if (!text) return "";
+
+  return text
+    // 1. Remove Headers (#) but keep text structure
+    .replace(/^#{1,6}\s+(.*$)/gm, '\n$1\n')
+    // 2. Remove Bold/Italic markers (**text** -> text)
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // 3. Fix Lists: Replace '*', '-', '+' at start of line with a simple dash
+    // This fixes the "Ø=ÜØ" error which is caused by unsupported bullet point characters
+    .replace(/^\s*[\*\-\+]\s+/gm, '  - ')
+    // 4. Remove Links [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+    // 5. Remove Images ![alt](url) -> [Imatge: alt]
+    .replace(/!\[([^\]]*)\]\([^\)]+\)/g, '[Imatge: $1]')
+    // 6. Remove HTML tags if any
+    .replace(/<[^>]*>/g, '')
+    // 7. Replace specific problematic unicode chars manually just in case
+    .replace(/•/g, '-') 
+    .replace(/—/g, '-')
+    // 8. Collapse multiple newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 };
 
 // Shared Logic to render a specific unit into an existing doc
@@ -40,11 +71,13 @@ const renderUnitToDoc = (
 
   // Unit Title
   checkPageBreak(30); 
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
   doc.setTextColor(50, 50, 150);
   doc.text(unit.title, margin, yPos);
   yPos += 10;
   
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.setTextColor(80);
   doc.text(unit.description, margin, yPos);
@@ -54,16 +87,19 @@ const renderUnitToDoc = (
   unit.items.forEach((item: any) => {
     checkPageBreak(40);
     
-    // Item Header
-    doc.setFillColor(240, 240, 245);
-    doc.rect(margin, yPos, maxLineWidth, 12, 'F');
+    // Item Header Background
+    doc.setFillColor(245, 247, 250);
+    doc.rect(margin, yPos, maxLineWidth, 14, 'F');
     
-    doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text(item.title, margin + 2, yPos + 8);
-    yPos += 18;
+    // Item Header Text
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(30, 30, 30);
+    doc.text(item.title, margin + 2, yPos + 9);
+    yPos += 20;
 
-    // Item Description
+    // Item Description (Prompt Context/Description)
+    doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
     doc.setTextColor(100);
     const descLines = doc.splitTextToSize(item.description, maxLineWidth);
@@ -74,15 +110,11 @@ const renderUnitToDoc = (
     const savedContent = localStorage.getItem(`moodle_content_${item.id}`);
     
     if (savedContent) {
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
       doc.setTextColor(0);
       
-      // Simple Markdown cleaning for plain PDF text
-      const cleanContent = savedContent
-        .replace(/#{1,6}\s?/g, '') // Remove heading hashes
-        .replace(/\*\*/g, '') // Remove bold asterisks
-        .replace(/\*/g, '•'); // Replace list asterisks with bullets
-
+      const cleanContent = cleanMarkdownForPdf(savedContent);
       const contentLines = doc.splitTextToSize(cleanContent, maxLineWidth);
       
       // Print lines checking for page breaks
@@ -94,9 +126,10 @@ const renderUnitToDoc = (
         yPos += 6;
       });
     } else {
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.setTextColor(150);
-      doc.text("[Contingut no generat encara]", margin, yPos);
+      doc.setTextColor(180);
+      doc.text("[ Contingut no generat ]", margin, yPos);
       yPos += 10;
     }
     
@@ -134,10 +167,12 @@ export const generateCoursePDF = () => {
   });
 
   // --- Title Page ---
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
   doc.setTextColor(50, 50, 150); 
   doc.text("Llibre del Curs: Cultura Audiovisual", margin, 60);
   
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(14);
   doc.setTextColor(100);
   doc.text("Generat amb Moodle Architect & Gemini AI", margin, 70);
@@ -148,11 +183,13 @@ export const generateCoursePDF = () => {
   doc.addPage();
 
   // --- Table of Contents ---
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(0);
   doc.text("Índex de Continguts", margin, yPos);
   yPos += 15;
 
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   COURSE_DATA.units.forEach((unit, index) => {
     doc.text(`${index + 1}. ${unit.title}`, margin, yPos);
@@ -187,10 +224,12 @@ export const generateUnitPDF = (unit: CourseUnit) => {
   });
 
   // --- Header for Single Unit ---
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.setTextColor(50, 50, 150);
   doc.text(`Document de treball: ${unit.title}`, margin, 20);
   doc.setLineWidth(0.5);
+  doc.setDrawColor(200);
   doc.line(margin, 25, pageWidth - margin, 25);
   
   // Render content starting below header
