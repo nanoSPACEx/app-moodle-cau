@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CourseItem, ItemType } from '../types';
 import { ICON_MAP } from '../constants';
 import { generateMoodleContent } from '../services/geminiService';
-import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Props {
@@ -16,13 +16,17 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
   const [customInstructions, setCustomInstructions] = useState('');
   const [showOptions, setShowOptions] = useState(true);
 
-  // Reset content when item changes
+  // Load content from localStorage or reset when item changes
   useEffect(() => {
-    setGeneratedContent('');
-    setIsLoading(false);
-    setCustomInstructions('');
-    setShowOptions(true);
-  }, [item]);
+    if (item) {
+      const savedContent = localStorage.getItem(`moodle_content_${item.id}`);
+      setGeneratedContent(savedContent || '');
+      setIsLoading(false);
+      setCustomInstructions('');
+      // If we have saved content, we can collapse options by default to show the content
+      setShowOptions(!savedContent);
+    }
+  }, [item?.id]);
 
   if (!item) {
     return (
@@ -40,17 +44,34 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
     if (!item.promptContext) return;
     
     setIsLoading(true);
-    setGeneratedContent(''); // Clear previous
+    setGeneratedContent(''); // Clear previous visual state
     
-    await generateMoodleContent(
-      item.title,
-      item.promptContext,
-      customInstructions,
-      (chunk) => setGeneratedContent(chunk)
-    );
-    
-    setIsLoading(false);
-    setShowOptions(false); // Collapse options after generation to focus on content
+    try {
+      const fullText = await generateMoodleContent(
+        item.title,
+        item.promptContext,
+        customInstructions,
+        (chunk) => setGeneratedContent(chunk)
+      );
+      
+      // Save to localStorage when complete
+      if (fullText) {
+        localStorage.setItem(`moodle_content_${item.id}`, fullText);
+      }
+      setShowOptions(false); // Collapse options after generation to focus on content
+    } catch (error) {
+      console.error("Failed to generate content", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSaved = () => {
+    if (window.confirm("Estàs segur que vols esborrar el contingut guardat?")) {
+      localStorage.removeItem(`moodle_content_${item.id}`);
+      setGeneratedContent('');
+      setShowOptions(true);
+    }
   };
 
   const copyToClipboard = () => {
@@ -78,6 +99,11 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
               <span className="text-xs uppercase tracking-wider font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                 {item.type}
               </span>
+              {generatedContent && (
+                 <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center">
+                   <Check size={10} className="mr-1" /> Guardat
+                 </span>
+              )}
             </div>
             <p className="mt-3 text-gray-600 leading-relaxed">{item.description}</p>
           </div>
@@ -92,13 +118,25 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
               <Sparkles className="w-5 h-5 text-indigo-500" />
               <span className="font-semibold text-gray-700">Autocreador de Continguts (Gemini)</span>
             </div>
-            <button 
-              onClick={() => setShowOptions(!showOptions)}
-              className="text-gray-400 hover:text-indigo-600 transition-colors"
-              title="Configuració de generació"
-            >
-              <SlidersHorizontal size={18} />
-            </button>
+            <div className="flex items-center space-x-2">
+              {generatedContent && !isLoading && (
+                <button 
+                  onClick={handleDeleteSaved}
+                  className="flex items-center space-x-1 text-gray-400 hover:text-red-500 transition-colors mr-2 px-2 py-1 rounded hover:bg-red-50"
+                  title="Esborrar contingut guardat"
+                >
+                  <Trash2 size={16} />
+                  <span className="text-xs font-medium">Esborrar</span>
+                </button>
+              )}
+              <button 
+                onClick={() => setShowOptions(!showOptions)}
+                className={`transition-colors ${showOptions ? 'text-indigo-600' : 'text-gray-400 hover:text-indigo-600'}`}
+                title="Configuració de generació"
+              >
+                <SlidersHorizontal size={18} />
+              </button>
+            </div>
           </div>
 
           {showOptions && (
@@ -178,7 +216,7 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
           )}
           
           {generatedContent && (
-            <div className="prose prose-indigo prose-sm max-w-none">
+            <div className="prose prose-indigo prose-sm max-w-none text-gray-800">
                <ReactMarkdown>{generatedContent}</ReactMarkdown>
             </div>
           )}
