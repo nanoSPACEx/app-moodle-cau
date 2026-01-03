@@ -12,6 +12,7 @@ export const generateMoodleContent = async (
   itemTitle: string,
   baseContext: string,
   customInstructions: string,
+  globalContext: string,
   onStream: (chunk: string) => void
 ): Promise<string> => {
   try {
@@ -28,20 +29,35 @@ export const generateMoodleContent = async (
       - Utilitza format Markdown (negretes, llistes, títols) per millorar la llegibilitat.
     `;
 
+    // Constructing the prompt with priority logic
+    let contentSources = `CONTEXT DEL TEMARI (BASE): "${baseContext}"`;
+    
+    if (globalContext && globalContext.trim().length > 0) {
+      contentSources = `
+      !!! IMPORTANT: HAS DE BASAR-TE PRIORITÀRIAMENT EN LA SEGÜENT DOCUMENTACIÓ PROPORCIONADA PER L'USUARI !!!
+      
+      --- INICI DOCUMENTACIÓ/BIBLIOGRAFIA EXTRA ---
+      ${globalContext}
+      --- FI DOCUMENTACIÓ/BIBLIOGRAFIA EXTRA ---
+
+      CONTEXT SECUNDARI (Utilitzar només si falta informació a la documentació anterior):
+      "${baseContext}"
+      `;
+    }
+
     const prompt = `
       TASCA: Generar el contingut complet per al recurs del curs titulat: "${itemTitle}"
       
-      CONTEXT DEL TEMARI (BASE):
-      "${baseContext}"
+      ${contentSources}
       
-      INSTRUCCIONS ESPECÍFIQUES DE L'USUARI (PRIORITÀRIES):
-      ${customInstructions ? customInstructions : "Cap instrucció addicional. Segueix el context base."}
+      INSTRUCCIONS ESPECÍFIQUES DE L'USUARI:
+      ${customInstructions ? customInstructions : "Cap instrucció addicional."}
       
       FORMAT DE SORTIDA REQUERIT:
       Si és un Qüestionari: Llista les preguntes numerades i indica clarament la resposta correcta.
       Si és una Tasca: Defineix els Objectius, Descripció de l'activitat, Format de lliurament i Criteris d'avaluació (Rúbrica simple).
       Si és un Fòrum: Redacta el missatge inicial del professor per obrir el debat.
-      Si és una Pàgina/Lliçó: Desenvolupa el contingut teòric amb introducció, punts clau i conclusió o exemples.
+      Si és una Pàgina/Lliçó: Desenvolupa el contingut teòric amb introducció, punts clau i conclusió o exemples basats en la documentació.
     `;
 
     const responseStream = await ai.models.generateContentStream({
@@ -49,7 +65,7 @@ export const generateMoodleContent = async (
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         systemInstruction: systemInstruction,
-        temperature: 0.7, // Balance between creativity and precision
+        temperature: 0.7, 
       }
     });
 

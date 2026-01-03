@@ -3,7 +3,8 @@ import { COURSE_DATA } from './constants';
 import { CourseItem, CourseUnit, ItemType } from './types';
 import { ICON_MAP } from './constants';
 import { CourseItemDetail } from './components/CourseItemDetail';
-import { ChevronRight, ChevronDown, GraduationCap, LayoutGrid } from 'lucide-react';
+import { SourceManager } from './components/SourceManager';
+import { ChevronRight, ChevronDown, GraduationCap, LayoutGrid, Book, Database } from 'lucide-react';
 
 const UnitBlock: React.FC<{
   unit: CourseUnit;
@@ -59,9 +60,20 @@ const UnitBlock: React.FC<{
 export default function App() {
   const [activeUnitId, setActiveUnitId] = useState<string>('general');
   const [selectedItem, setSelectedItem] = useState<CourseItem | null>(null);
+  
+  // Global Context State (Bibliography/Sources)
+  const [globalContext, setGlobalContext] = useState<string>('');
+  const [isSourceManagerOpen, setIsSourceManagerOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+      <SourceManager 
+        isOpen={isSourceManagerOpen} 
+        onClose={() => setIsSourceManagerOpen(false)}
+        globalContext={globalContext}
+        setGlobalContext={setGlobalContext}
+      />
+
       {/* Navbar */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -73,10 +85,31 @@ export default function App() {
             <p className="text-xs text-gray-500">Disseny de Curs: Cultura Audiovisual</p>
           </div>
         </div>
-        <div className="hidden md:flex items-center space-x-4 text-sm text-gray-500">
-           <span className="flex items-center"><LayoutGrid size={16} className="mr-1"/> 8 Blocs</span>
-           <span className="px-2">|</span>
-           <span>React 18 + Gemini 2.0</span>
+        
+        <div className="flex items-center space-x-4">
+           {/* Source Manager Button */}
+           <button 
+             onClick={() => setIsSourceManagerOpen(true)}
+             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+               globalContext.length > 0 
+                ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200' 
+                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+             }`}
+           >
+             <Book size={18} />
+             <span>Fonts / Bibliografia</span>
+             {globalContext.length > 0 && (
+               <span className="bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                 Actiu
+               </span>
+             )}
+           </button>
+
+           <div className="hidden md:flex items-center space-x-4 text-sm text-gray-500 border-l pl-4 border-gray-200">
+             <span className="flex items-center"><LayoutGrid size={16} className="mr-1"/> 8 Blocs</span>
+             <span className="px-2">|</span>
+             <span>Gemini 2.0</span>
+          </div>
         </div>
       </header>
 
@@ -118,7 +151,10 @@ export default function App() {
         {/* Right Content: Details & AI */}
         <section className="flex-1 overflow-hidden relative bg-slate-50 p-4 md:p-8">
           <div className="max-w-4xl mx-auto h-full">
-            <CourseItemDetail item={selectedItem} />
+            <CourseItemDetail 
+              item={selectedItem} 
+              globalContext={globalContext}
+            />
           </div>
         </section>
 

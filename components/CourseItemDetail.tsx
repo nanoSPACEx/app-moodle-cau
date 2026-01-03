@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { CourseItem, ItemType } from '../types';
 import { ICON_MAP } from '../constants';
 import { generateMoodleContent } from '../services/geminiService';
-import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info, Trash2 } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info, Trash2, BookOpen } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Props {
   item: CourseItem | null;
+  globalContext?: string;
 }
 
-export const CourseItemDetail: React.FC<Props> = ({ item }) => {
+export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '' }) => {
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -51,6 +52,7 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
         item.title,
         item.promptContext,
         customInstructions,
+        globalContext,
         (chunk) => setGeneratedContent(chunk)
       );
       
@@ -141,6 +143,17 @@ export const CourseItemDetail: React.FC<Props> = ({ item }) => {
 
           {showOptions && (
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              
+              {/* Context Info Banner */}
+              {globalContext && (
+                <div className="flex items-start p-3 bg-orange-50 border border-orange-100 rounded-md mb-3 text-xs text-orange-800">
+                   <BookOpen size={14} className="mr-2 mt-0.5 flex-shrink-0" />
+                   <span>
+                     <strong>Bibliografia Activada:</strong> S'utilitzarà la documentació externa proporcionada ({globalContext.length} caràcters) com a font principal.
+                   </span>
+                </div>
+              )}
+
               <div>
                 <label className="flex items-center text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   <Info size={12} className="mr-1" />
