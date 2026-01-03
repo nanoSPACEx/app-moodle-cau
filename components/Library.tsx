@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onImportContext?: (context: string) => void;
 }
 
 interface LibraryItem {
@@ -30,7 +31,7 @@ const TYPE_LABELS: Record<string, string> = {
   'unknown': 'Desconegut'
 };
 
-export const Library: React.FC<Props> = ({ isOpen, onClose }) => {
+export const Library: React.FC<Props> = ({ isOpen, onClose, onImportContext }) => {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<LibraryItem | null>(null);
   const [filterText, setFilterText] = useState('');
@@ -136,6 +137,7 @@ export const Library: React.FC<Props> = ({ isOpen, onClose }) => {
       version: 1,
       date: new Date().toISOString(),
       type: typeFilter,
+      globalContext: localStorage.getItem('moodle_global_context') || undefined,
       items: itemsToExport.map(i => ({ id: i.id, content: i.content }))
     };
 
@@ -172,7 +174,15 @@ export const Library: React.FC<Props> = ({ isOpen, onClose }) => {
               count++;
             }
           });
-          setImportStatus(`${count} elements importats correctament.`);
+          
+          let contextMsg = "";
+          if (json.globalContext && typeof json.globalContext === 'string') {
+             localStorage.setItem('moodle_global_context', json.globalContext);
+             if (onImportContext) onImportContext(json.globalContext);
+             contextMsg = " + Context global restaurat.";
+          }
+
+          setImportStatus(`${count} elements importats correctament.${contextMsg}`);
           loadItems(); // Refresh list to show new content
         } else {
           setImportStatus("Format de fitxer invàlid.");

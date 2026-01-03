@@ -87,7 +87,19 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<CourseItem | null>(null);
   
   // Global Context State (Bibliography/Sources)
-  const [globalContext, setGlobalContext] = useState<string>('');
+  // Initialized from localStorage to persist across refreshes
+  const [globalContext, setGlobalContext] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('moodle_global_context') || '';
+    }
+    return '';
+  });
+  
+  // Persist global context whenever it changes
+  useEffect(() => {
+    localStorage.setItem('moodle_global_context', globalContext);
+  }, [globalContext]);
+
   const [isSourceManagerOpen, setIsSourceManagerOpen] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
@@ -156,6 +168,7 @@ export default function App() {
       <Library 
         isOpen={isLibraryOpen}
         onClose={() => setIsLibraryOpen(false)}
+        onImportContext={setGlobalContext}
       />
 
       <AiAssistant 
