@@ -84,3 +84,48 @@ export const generateMoodleContent = async (
     return `Error generating content: ${(error as Error).message}. Please check your API key.`;
   }
 };
+
+// --- New Features ---
+
+export interface SearchResult {
+  text: string;
+  sources: { uri: string; title: string }[];
+}
+
+export const searchWithGrounding = async (query: string): Promise<SearchResult> => {
+  const ai = getClient();
+  // Using gemini-3-flash-preview with googleSearch tool as requested
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: query,
+    config: {
+      tools: [{ googleSearch: {} }],
+    },
+  });
+
+  const text = response.text || "No s'ha trobat informació rellevant.";
+  
+  // Extract grounding chunks (URLs)
+  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const sources = chunks
+    .filter((c: any) => c.web?.uri)
+    .map((c: any) => ({
+      uri: c.web.uri,
+      title: c.web.title || c.web.uri
+    }));
+
+  return { text, sources };
+};
+
+export const getChatSession = () => {
+  const ai = getClient();
+  // Using gemini-3-pro-preview for complex reasoning/chat as requested
+  return ai.chats.create({
+    model: 'gemini-3-pro-preview',
+    config: {
+      systemInstruction: `Ets un tutor virtual expert en Cultura Audiovisual. 
+      La teva missió és ajudar estudiants i professors a resoldre dubtes, aprofundir en conceptes de cinema, fotografia, publicitat i mitjans.
+      Sigues didàctic, pacient i utilitza exemples pràctics.`,
+    },
+  });
+};

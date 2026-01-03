@@ -1,21 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CourseItem, ItemType } from '../types';
 import { ICON_MAP } from '../constants';
 import { generateMoodleContent } from '../services/geminiService';
-import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info, Trash2, BookOpen } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, SlidersHorizontal, Info, Trash2, BookOpen, Globe, ChevronDown, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Props {
   item: CourseItem | null;
   globalContext?: string;
+  onSearchRequest?: (query: string) => void;
 }
 
-export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '' }) => {
+export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '', onSearchRequest }) => {
   const [generatedContent, setGeneratedContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const [showOptions, setShowOptions] = useState(true);
+  
+  // Search Menu State
+  const [isSearchMenuOpen, setIsSearchMenuOpen] = useState(false);
+  const searchMenuRef = useRef<HTMLDivElement>(null);
 
   // Load content from localStorage or reset when item changes
   useEffect(() => {
@@ -24,10 +29,21 @@ export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '' }) 
       setGeneratedContent(savedContent || '');
       setIsLoading(false);
       setCustomInstructions('');
-      // If we have saved content, we can collapse options by default to show the content
       setShowOptions(!savedContent);
+      setIsSearchMenuOpen(false); // Close menu on item change
     }
   }, [item?.id]);
+
+  // Click outside to close search menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchMenuRef.current && !searchMenuRef.current.contains(event.target as Node)) {
+        setIsSearchMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!item) {
     return (
@@ -68,6 +84,33 @@ export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '' }) 
     }
   };
 
+  const handleSearchClick = (mode: 'item' | 'global') => {
+    if (!onSearchRequest) return;
+    
+    setIsSearchMenuOpen(false);
+    
+    const basePrompt = `Tema: "${item.title}". Descripció: "${item.description}".`;
+    
+    let finalQuery = '';
+
+    if (mode === 'global' && globalContext) {
+      // Create a focused prompt utilizing the global context
+      // We truncate slightly to ensure we don't hit hard prompt limits if context is massive, 
+      // though Gemini 3 handles large contexts well.
+      finalQuery = `
+      Actua com a investigador expert. Tinc la següent documentació de referència del curs (CONTEXT GLOBAL):
+      "${globalContext.slice(0, 4000)}..."
+      
+      TASCA: Utilitzant Google Search, busca informació externa, exemples i recursos que siguin RELLEVANTS i COMPLEMENTARIS a aquest context global, específicament sobre el tema:
+      ${basePrompt}
+      `;
+    } else {
+      finalQuery = `Cerca a Google informació detallada i recursos educatius sobre: "${item.title}". Context específic: ${item.description}`;
+    }
+
+    onSearchRequest(finalQuery);
+  };
+
   const handleDeleteSaved = () => {
     if (window.confirm("Estàs segur que vols esborrar el contingut guardat?")) {
       localStorage.removeItem(`moodle_content_${item.id}`);
@@ -82,33 +125,90 @@ export const CourseItemDetail: React.FC<Props> = ({ item, globalContext = '' }) 
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const hasGlobalContext = globalContext && globalContext.length > 0;
+
   return (
     <div className="flex flex-col h-full space-y-6">
       {/* Header */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-start space-x-4">
-          <div className={`p-3 rounded-lg ${
-            item.type === ItemType.QUIZ ? 'bg-pink-100 text-pink-600' :
-            item.type === ItemType.ASSIGNMENT ? 'bg-purple-100 text-purple-600' :
-            item.type === ItemType.FORUM ? 'bg-yellow-100 text-yellow-600' :
-            'bg-blue-100 text-blue-600'
-          }`}>
-            <Icon size={28} />
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-4 flex-1">
+            <div className={`p-3 rounded-lg ${
+              item.type === ItemType.QUIZ ? 'bg-pink-100 text-pink-600' :
+              item.type === ItemType.ASSIGNMENT ? 'bg-purple-100 text-purple-600' :
+              item.type === ItemType.FORUM ? 'bg-yellow-100 text-yellow-600' :
+              'bg-blue-100 text-blue-600'
+            }`}>
+              <Icon size={28} />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-gray-800">{item.title}</h2>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="text-xs uppercase tracking-wider font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  {item.type}
+                </span>
+                {generatedContent && (
+                   <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center">
+                     <Check size={10} className="mr-1" /> Guardat
+                   </span>
+                )}
+              </div>
+              <p className="mt-3 text-gray-600 leading-relaxed">{item.description}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-gray-800">{item.title}</h2>
-            <div className="flex items-center space-x-2 mt-1">
-              <span className="text-xs uppercase tracking-wider font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                {item.type}
-              </span>
-              {generatedContent && (
-                 <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded flex items-center">
-                   <Check size={10} className="mr-1" /> Guardat
-                 </span>
+          
+          {/* Action Button: Google Search Grounding with Split Button */}
+          {onSearchRequest && (
+            <div className="flex ml-4 relative" ref={searchMenuRef}>
+              <button
+                onClick={() => handleSearchClick('item')}
+                className={`flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm font-medium text-sm ${hasGlobalContext ? 'rounded-l-lg border-r border-blue-800' : 'rounded-lg'}`}
+                title="Cerca informació sobre aquest element a Google"
+              >
+                <Globe size={18} />
+                <span className="hidden sm:inline">Investigar</span>
+              </button>
+              
+              {hasGlobalContext && (
+                <button
+                  onClick={() => setIsSearchMenuOpen(!isSearchMenuOpen)}
+                  className="px-2 bg-blue-600 text-white hover:bg-blue-700 rounded-r-lg transition-colors shadow-sm flex items-center justify-center"
+                  title="Opcions de cerca avançada"
+                >
+                  <ChevronDown size={16} />
+                </button>
+              )}
+
+              {/* Dropdown Menu */}
+              {isSearchMenuOpen && hasGlobalContext && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-20 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                   <div className="p-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                     Àmbit de la cerca
+                   </div>
+                   <button 
+                     onClick={() => handleSearchClick('item')}
+                     className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center"
+                   >
+                     <Globe size={16} className="mr-3 text-gray-400" />
+                     <div>
+                       <span className="font-medium block">Només l'element actual</span>
+                       <span className="text-xs text-gray-500">Cerca informació general sobre el títol</span>
+                     </div>
+                   </button>
+                   <button 
+                     onClick={() => handleSearchClick('global')}
+                     className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center border-t border-gray-100"
+                   >
+                     <BookOpen size={16} className="mr-3 text-orange-500" />
+                     <div>
+                       <span className="font-medium block">Integrar Context Global</span>
+                       <span className="text-xs text-gray-500">Creua la cerca amb la bibliografia del curs</span>
+                     </div>
+                   </button>
+                </div>
               )}
             </div>
-            <p className="mt-3 text-gray-600 leading-relaxed">{item.description}</p>
-          </div>
+          )}
         </div>
       </div>
 

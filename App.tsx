@@ -4,7 +4,9 @@ import { CourseItem, CourseUnit, ItemType } from './types';
 import { ICON_MAP } from './constants';
 import { CourseItemDetail } from './components/CourseItemDetail';
 import { SourceManager } from './components/SourceManager';
-import { ChevronRight, ChevronDown, GraduationCap, LayoutGrid, Book, Database } from 'lucide-react';
+import { AiAssistant } from './components/AiAssistant';
+import { generateCoursePDF, generateUnitPDF } from './services/pdfExporter';
+import { ChevronRight, ChevronDown, GraduationCap, LayoutGrid, Book, Database, Download, Loader2, FileDown, Bot } from 'lucide-react';
 
 const UnitBlock: React.FC<{
   unit: CourseUnit;
@@ -14,22 +16,36 @@ const UnitBlock: React.FC<{
   onSelectItem: (item: CourseItem) => void;
   colorClass: string;
 }> = ({ unit, isActive, onToggle, selectedItemId, onSelectItem, colorClass }) => {
+  
+  const handleUnitDownload = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent toggling the accordion
+    generateUnitPDF(unit);
+  };
+
   return (
     <div className="mb-4 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <button 
+      <div 
         onClick={onToggle}
-        className={`w-full flex items-center justify-between p-4 transition-colors ${isActive ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+        className={`w-full flex items-center justify-between p-4 transition-colors cursor-pointer ${isActive ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
       >
-        <div className="flex items-center space-x-3 text-left">
-          <div className={`p-2 rounded-md ${colorClass} bg-opacity-20 text-gray-700`}>
+        <div className="flex items-center space-x-3 text-left overflow-hidden">
+          <div className={`p-2 rounded-md ${colorClass} bg-opacity-20 text-gray-700 flex-shrink-0`}>
              {isActive ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
           </div>
-          <div>
-            <h3 className="font-bold text-gray-800">{unit.title}</h3>
-            {isActive && <p className="text-xs text-gray-500 mt-1">{unit.description}</p>}
+          <div className="truncate">
+            <h3 className="font-bold text-gray-800 truncate">{unit.title}</h3>
+            {isActive && <p className="text-xs text-gray-500 mt-1 truncate">{unit.description}</p>}
           </div>
         </div>
-      </button>
+        
+        <button 
+          onClick={handleUnitDownload}
+          className="ml-2 p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all"
+          title={`Descarregar PDF de: ${unit.title}`}
+        >
+          <FileDown size={18} />
+        </button>
+      </div>
 
       {isActive && (
         <div className="border-t border-gray-100 bg-gray-50/50">
@@ -64,14 +80,43 @@ export default function App() {
   // Global Context State (Bibliography/Sources)
   const [globalContext, setGlobalContext] = useState<string>('');
   const [isSourceManagerOpen, setIsSourceManagerOpen] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [assistantQuery, setAssistantQuery] = useState<string>('');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = () => {
+    setIsGeneratingPdf(true);
+    // Use timeout to allow UI to render loading state before sync heavy task
+    setTimeout(() => {
+      try {
+        generateCoursePDF();
+      } catch (e) {
+        console.error("Error generating PDF", e);
+        alert("Hi ha hagut un error generant el PDF.");
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+    }, 100);
+  };
+
+  const handleContextualSearch = (query: string) => {
+    setAssistantQuery(query);
+    setIsAssistantOpen(true);
+  };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-gray-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-gray-50 relative">
       <SourceManager 
         isOpen={isSourceManagerOpen} 
         onClose={() => setIsSourceManagerOpen(false)}
         globalContext={globalContext}
         setGlobalContext={setGlobalContext}
+      />
+
+      <AiAssistant 
+        isOpen={isAssistantOpen}
+        onClose={() => setIsAssistantOpen(false)}
+        initialQuery={assistantQuery}
       />
 
       {/* Navbar */}
@@ -86,30 +131,56 @@ export default function App() {
           </div>
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
+           {/* Export PDF Button */}
+           <button 
+             onClick={handleDownloadPdf}
+             disabled={isGeneratingPdf}
+             className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-sm ${
+               isGeneratingPdf 
+                 ? 'bg-gray-700 text-gray-300 cursor-not-allowed' 
+                 : 'bg-gray-800 hover:bg-gray-900 text-white'
+             }`}
+             title="Descarregar tot el curs com a llibre PDF"
+           >
+             {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+             <span className="hidden lg:inline">
+               {isGeneratingPdf ? 'Generant...' : 'eBook'}
+             </span>
+           </button>
+
+           <div className="h-6 w-px bg-gray-200 mx-1"></div>
+
+           {/* AI Assistant Button */}
+           <button 
+             onClick={() => setIsAssistantOpen(true)}
+             className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
+               isAssistantOpen
+                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                 : 'bg-white border-gray-300 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
+             }`}
+           >
+             <Bot size={18} />
+             <span className="hidden sm:inline">Assistent IA</span>
+           </button>
+
            {/* Source Manager Button */}
            <button 
              onClick={() => setIsSourceManagerOpen(true)}
-             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+             className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                globalContext.length > 0 
                 ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200' 
                 : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
              }`}
            >
              <Book size={18} />
-             <span>Fonts / Bibliografia</span>
+             <span className="hidden lg:inline">Fonts</span>
              {globalContext.length > 0 && (
                <span className="bg-orange-600 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                 Actiu
+                 ON
                </span>
              )}
            </button>
-
-           <div className="hidden md:flex items-center space-x-4 text-sm text-gray-500 border-l pl-4 border-gray-200">
-             <span className="flex items-center"><LayoutGrid size={16} className="mr-1"/> 8 Blocs</span>
-             <span className="px-2">|</span>
-             <span>Gemini 2.0</span>
-          </div>
         </div>
       </header>
 
@@ -154,6 +225,7 @@ export default function App() {
             <CourseItemDetail 
               item={selectedItem} 
               globalContext={globalContext}
+              onSearchRequest={handleContextualSearch}
             />
           </div>
         </section>

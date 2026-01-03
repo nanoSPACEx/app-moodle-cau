@@ -1,5 +1,5 @@
 {
-  "name": "moodle-course-architect",
+  "name": "moodle-cau-course-architect",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,7 +15,8 @@
     "lucide-react": "^0.562.0",
     "react-dom": "^19.2.3",
     "pdfjs-dist": "4.0.379",
-    "tesseract.js": "5.0.5"
+    "tesseract.js": "5.0.5",
+    "jspdf": "2.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
